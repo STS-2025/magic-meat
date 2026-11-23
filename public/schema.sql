@@ -388,9 +388,28 @@ begin
 end;
 $$;
 
+-- 3. Resolve the Auth email for an active branch before sign-in.
+create or replace function public.get_branch_login_email(p_branch_code text)
+returns text
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select u.email
+  from public.profiles p
+  join public.branches b on b.id = p.branch_id
+  join auth.users u on u.id = p.id
+  where lower(b.code) = lower(trim(p_branch_code))
+    and b.is_active = true
+    and p.is_active = true
+  order by case p.role when 'cashier' then 0 when 'manager' then 1 else 2 end
+  limit 1;
+$$;
+
 -- Grant execution permissions
 grant execute on function public.create_sale(text, text, text, numeric, jsonb, uuid) to authenticated, anon;
 grant execute on function public.add_branch_stock(uuid, uuid, bigint, text) to authenticated, anon;
+grant execute on function public.get_branch_login_email(text) to anon, authenticated;
 
 -- =====================================================================
 -- PRE-SEEDED PRODUCTION DATA FOR MAGIC MEAT

@@ -239,16 +239,20 @@ export default function BranchMembership({ branch }) {
                 const cat = plan.category || 'Chicken';
                 return (
                   <button className="branch-membership-plan-card" key={plan.id} onClick={() => setSelectedPlan(plan)}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <div className="branch-membership-plan-card-top">
                       <span className="branch-membership-plan-icon"><BadgePercent size={20} /></span>
-                      <span className={`badge-pill cat-badge-${getCatClass(cat)}`} style={{ fontSize: '11px', padding: '2px 7px' }}>
+                      <span className={`badge-pill cat-badge-${getCatClass(cat)}`}>
                         {cat}
                       </span>
                     </div>
-                    <strong>{plan.plan_name}</strong>
-                    <span>{plan.duration_weeks} weeks · {plan.product_quantity}</span>
-                    <b>{money(plan.offer_price)}</b>
-                    <small>View details <Eye size={13} /></small>
+                    <div className="branch-membership-plan-card-body">
+                      <strong>{plan.plan_name}</strong>
+                      <span>{plan.duration_weeks} weeks · {plan.product_quantity}</span>
+                    </div>
+                    <div className="branch-membership-plan-card-footer">
+                      <b>{money(plan.offer_price)}</b>
+                      <small>View details <Eye size={13} /></small>
+                    </div>
                   </button>
                 );
               })}

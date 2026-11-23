@@ -24,6 +24,10 @@ import { useToast } from './ToastProvider.jsx';
 
 let billingDraftCache = null;
 
+export function resetBillingDraftCache() {
+  billingDraftCache = null;
+}
+
 function getSavedBillingDraft() {
   return billingDraftCache || {};
 }

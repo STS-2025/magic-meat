@@ -31,6 +31,8 @@ create policy branches_owner_all on public.branches for all to authenticated
     with check (public.current_role() = 'owner');
 create policy branches_staff_read on public.branches for select to authenticated
     using (id = public.current_branch());
+create policy branches_public_read on public.branches for select to anon
+    using (is_active = true);
 
 create policy profiles_owner_all on public.profiles for all to authenticated
     using (public.current_role() = 'owner')
@@ -273,3 +275,6 @@ revoke execute on function public.create_sale(text, text, text, numeric, jsonb, 
 revoke execute on function public.add_branch_stock(uuid, uuid, bigint, text) from anon;
 grant execute on function public.create_sale(text, text, text, numeric, jsonb, uuid) to authenticated;
 grant execute on function public.add_branch_stock(uuid, uuid, bigint, text) to authenticated;
+
+revoke all on function public.get_branch_login_email(text) from public;
+grant execute on function public.get_branch_login_email(text) to anon, authenticated;

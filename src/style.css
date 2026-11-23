@@ -4503,31 +4503,672 @@ svg {
   }
 }
 
+/* =====================================================================
+   BILLING HEADER / SEARCH FINAL OVERRIDE
+   Keeps branch controls compact and aligned without changing the markup.
+   ===================================================================== */
+
+.pos-container .pos-sub-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.pos-container .branch-meta {
+  flex: 1 1 220px;
+  min-width: 0;
+  gap: 7px;
+}
+
+.pos-container .branch-meta > div {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pos-container .branch-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pos-container .owner-branch-switch {
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.pos-container .owner-branch-switch select {
+  width: min(220px, 32vw);
+  min-width: 112px;
+  max-width: 100%;
+  padding: 5px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-container .search-bar-wrap input {
+  font-size: 12px;
+}
+
+.pos-container .search-bar-wrap input::placeholder {
+  font-size: 11px;
+}
+
 @media (max-width: 767px) {
-  .branch-membership-page .branch-membership-page-header {
+  .pos-container .pos-sub-header {
+    display: flex;
+    align-items: center;
+    gap: 6px 9px;
+  }
+
+  .pos-container .branch-meta {
+    flex: 1 1 210px;
+  }
+
+  .pos-container .owner-branch-switch {
+    flex: 0 1 auto;
+    max-width: 100%;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .pos-container .owner-branch-switch select {
+    width: min(180px, 42vw);
+    min-width: 96px;
+    font-size: 11px;
+  }
+
+  .pos-container .search-bar-wrap input {
+    font-size: 11px;
+  }
+
+  .pos-container .search-bar-wrap input::placeholder {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pos-container .branch-meta {
+    flex-basis: 100%;
+  }
+
+  .pos-container .owner-branch-switch {
+    flex: 1 1 100%;
+    align-items: center;
+  }
+
+  .pos-container .owner-branch-switch select {
+    flex: 1 1 140px;
+    width: auto;
+  }
+}
+
+/* =====================================================================
+   BILLING MOBILE NAVBAR VISIBILITY FINAL OVERRIDE
+   Keeps the fixed hamburger clear while preserving readable branch and
+   counter controls without changing the Billing markup or behavior.
+   ===================================================================== */
+
+@media (max-width: 767px) {
+  .pos-container .pos-sub-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 8px;
+    padding-left: 58px;
+    overflow: hidden;
+  }
+
+  .pos-container .branch-meta {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pos-container .branch-meta > div,
+  .pos-container .branch-meta strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pos-container .owner-branch-switch {
+    grid-column: 2;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .pos-container .owner-branch-switch select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 auto;
+    padding: 7px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pos-container .owner-branch-switch > span {
+    display: none;
+  }
+}
+
+@media (max-width: 359px) {
+  .pos-container .pos-sub-header {
+    grid-template-columns: minmax(0, 1fr) 104px;
+    padding-inline: 54px 7px;
+  }
+
+  .pos-container .owner-branch-switch select {
+    font-size: 10px !important;
+  }
+}
+
+.inventory-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inventory-panel-header .btn-secondary {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.product-header-controls {
+  display: contents;
+}
+
+.product-header-controls .filter-group {
+  order: 1;
+}
+
+.product-header-search {
+  order: 2;
+}
+
+.product-header-controls .btn-primary {
+  order: 3;
+}
+
+@media (min-width: 768px) {
+  .admin-actions-bar.product-actions-bar {
+    flex-wrap: nowrap;
+  }
+
+  .admin-actions-bar.product-actions-bar .product-header-search {
+    flex: 1 1 120px;
+    min-width: 120px;
+  }
+
+  .product-header-controls .btn-primary {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-header-row.product-header-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(120px, 42%, 160px);
+    grid-template-areas:
+      "heading controls"
+      "search search";
     align-items: start;
     gap: 8px;
     padding-left: 48px;
+    margin-bottom: 12px;
   }
 
-  .branch-membership-page .branch-membership-page-header > div:first-child {
+  .admin-header-row.product-header-row > .product-heading {
+    grid-area: heading;
     min-width: 0;
     margin-left: 0;
   }
 
-  .branch-membership-page .branch-membership-page-header .admin-page-title {
+  .product-header-row .admin-page-title {
     font-size: clamp(16px, 5vw, 19px);
   }
 
-  .branch-membership-page .branch-membership-page-header > .btn-secondary {
-    width: auto;
+  .product-header-row .product-actions-bar {
+    display: contents;
+  }
+
+  .product-header-controls {
+    grid-area: controls;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
     min-width: 0;
+  }
+
+  .product-header-controls .filter-group,
+  .product-header-controls .filter-group select,
+  .product-header-controls .btn-primary {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .product-header-controls .btn-primary {
+    min-height: 34px;
+    padding: 4px 2px;
+    gap: 3px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  .product-header-search {
+    grid-area: search;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-header-row.inventory-header-row .inventory-actions-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .inventory-actions-bar .filter-group,
+  .inventory-actions-bar .filter-group select,
+  .inventory-actions-bar .btn-primary {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .inventory-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .inventory-panel-header .panel-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inventory-panel-header .btn-secondary {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 767px) {
+  .branches-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 359px) {
+  .branch-card {
+    padding: 8px;
+    gap: 10px;
+  }
+
+  .branch-card-header {
+    gap: 8px;
+  }
+
+  .branch-icon-wrap {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+  }
+
+  .branch-card-title {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 767px) {
+  .membership-page .admin-header-actions {
+    display: flex;
+    align-self: stretch;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .membership-page .admin-header-actions > button {
+    flex: 0 0 auto;
+    width: auto;
     min-height: 34px;
     padding: 4px 7px;
     font-size: 10px;
     white-space: nowrap;
+  }
+
+  .membership-page .membership-filter-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "search search"
+      "status branch";
+    gap: 8px;
+  }
+
+  .membership-page .membership-filter-toolbar > .membership-search-bar {
+    grid-area: search !important;
+  }
+
+  .membership-page .membership-filter-toolbar > .membership-status-dropdown-group {
+    grid-area: status !important;
+  }
+
+  .membership-page .membership-filter-toolbar > .membership-location-group {
+    grid-area: branch !important;
+  }
+
+  .membership-page .membership-filter-toolbar .membership-filter-select {
+    height: 36px;
+    padding: 6px 20px 6px 30px;
+    font-size: 10px !important;
+  }
+
+  .membership-page .membership-filter-toolbar .filter-icon {
+    left: 9px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .membership-page .membership-tabs,
+  .membership-page .membership-cat-btn-bar,
+  .membership-page .membership-status-btn-bar,
+  .membership-page .custom-table-wrap {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .membership-page .membership-tabs::-webkit-scrollbar,
+  .membership-page .membership-cat-btn-bar::-webkit-scrollbar,
+  .membership-page .membership-status-btn-bar::-webkit-scrollbar,
+  .membership-page .custom-table-wrap::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .pos-container .pos-cart-pane .customer-inputs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .pos-container .pos-cart-pane .customer-inputs-grid .input-group input {
+    padding-left: 26px;
+    font-size: 11px !important;
+  }
+
+  .pos-container .pos-cart-pane .payment-method-selector .payment-buttons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .pos-container .pos-cart-pane .payment-buttons .pay-btn {
+    min-width: 0;
+    padding-inline: 2px;
+    gap: 3px;
+    font-size: 10px;
+  }
+
+  .pos-container .pos-cart-pane .item-row-bottom {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pos-container .pos-cart-pane .cut-style-wrap {
+    order: 1;
+    flex: 1 1 0;
+    width: auto;
+  }
+
+  .pos-container .pos-cart-pane .cut-style-wrap select {
+    min-width: 0;
+    padding-left: 20px;
+    font-size: 10px !important;
+  }
+
+  .pos-container .pos-cart-pane .weight-adjust-group {
+    order: 2;
+    flex: 0 0 auto;
+    gap: 2px;
+  }
+}
+
+@media (max-width: 359px) {
+  .pos-container .pos-cart-pane .customer-inputs-grid {
+    gap: 4px;
+  }
+
+  .pos-container .pos-cart-pane .customer-inputs-grid .input-group input {
+    padding-left: 24px;
+    font-size: 10px !important;
+  }
+
+  .pos-container .pos-cart-pane .payment-buttons .pay-btn {
+    gap: 2px;
+    font-size: 9px;
+  }
+
+  .pos-container .pos-cart-pane .payment-buttons .pay-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pos-container .pos-cart-pane .weight-adjust-group .step-btn {
+    width: 28px;
+    min-width: 28px;
+    min-height: 32px;
+    height: 32px;
+  }
+
+  .pos-container .pos-cart-pane .gram-input-wrap input {
+    width: 56px;
+    height: 32px;
+  }
+}
+
+/* =====================================================================
+   BRANCH MEMBERSHIP PAGE STYLES
+   ===================================================================== */
+.branch-membership-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 24px;
+  background-color: #f8fafc;
+}
+
+.branch-membership-page .membership-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.branch-membership-page .membership-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #d9e2ed;
+  border-radius: 10px;
+  background: #fff;
+  color: #526176;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.branch-membership-page .membership-tab.active {
+  border-color: #123d32;
+  background: #123d32;
+  color: #fff;
+}
+
+.branch-membership-page .membership-customer-header {
+  align-items: flex-start;
+}
+
+.branch-membership-page .branch-membership-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.branch-membership-page .membership-search {
+  width: min(280px, 35vw);
+}
+
+.branch-membership-page .branch-membership-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.branch-membership-page .branch-membership-plan-card {
+  appearance: none;
+  width: 100%;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #dfe7ef;
+  border-radius: 14px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  text-align: left;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.branch-membership-page .branch-membership-plan-card:hover {
+  transform: translateY(-2px);
+  border-color: #7da99b;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.11);
+}
+
+.branch-membership-page .branch-membership-plan-card-top,
+.branch-membership-page .branch-membership-plan-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.branch-membership-page .branch-membership-plan-card-top .badge-pill {
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.branch-membership-page .branch-membership-plan-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #eef5f2;
+  color: #123d32;
+}
+
+.branch-membership-page .branch-membership-plan-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.branch-membership-page .branch-membership-plan-card-body strong {
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.branch-membership-page .branch-membership-plan-card-body span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.branch-membership-page .branch-membership-plan-card-footer b {
+  color: #123d32;
+  font-size: 20px;
+}
+
+.branch-membership-page .branch-membership-plan-card-footer small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+@media (max-width: 767px) {
+  .branch-membership-page .membership-tabs {
+    width: 100%;
+  }
+
+  .branch-membership-page .membership-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 38px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .branch-membership-page .membership-customer-header {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .branch-membership-page .branch-membership-header-actions {
+    width: 100%;
+  }
+
+  .branch-membership-page .membership-search {
+    flex: 1 1 auto;
+    width: auto;
   }
 
   .branch-membership-page .branch-membership-plan-grid {
@@ -4536,131 +5177,24 @@ svg {
   }
 
   .branch-membership-page .branch-membership-plan-card {
-    min-height: 168px;
-    padding: 10px;
-    gap: 7px;
+    min-height: 178px;
+    padding: 11px;
+    gap: 8px;
   }
 
-  .branch-membership-page .branch-membership-plan-card > strong {
+  .branch-membership-page .branch-membership-plan-card-body strong {
     font-size: 14px;
   }
 
-  .branch-membership-page .branch-membership-plan-card > span:not(.branch-membership-plan-icon) {
+  .branch-membership-page .branch-membership-plan-card-body span {
     font-size: 11px;
   }
 
-  .branch-membership-page .branch-membership-plan-card > b {
+  .branch-membership-page .branch-membership-plan-card-footer b {
     font-size: 17px;
   }
 
-  .branch-membership-page .branch-membership-plan-card > small {
-    font-size: 10px;
-  }
-
-  .branch-membership-page .branch-membership-plan-icon {
-    width: 32px;
-    height: 32px;
-  }
-}
-
-@media (max-width: 767px) {
-  .branch-sales-history-page .history-actions-bar {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: stretch;
-    gap: 6px;
-    width: 100%;
-  }
-
-  .branch-sales-history-page .history-actions-bar > * {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .branch-sales-history-page .history-actions-bar .filter-group select {
-    height: 34px;
-    padding: 5px 5px 5px 25px;
-    font-size: 11px !important;
-  }
-
-  .branch-sales-history-page .history-actions-bar .filter-icon {
-    left: 6px;
-    width: 14px;
-    height: 14px;
-  }
-
-  .branch-sales-history-page .history-actions-bar .btn-secondary {
-    min-height: 34px;
-    padding: 4px 2px;
-    gap: 3px;
+  .branch-membership-page .branch-membership-plan-card-footer small {
     font-size: 9px;
-    justify-content: center;
-    white-space: nowrap;
-  }
-}
-
-/* UPI Receipt Styles */
-.receipt-upi-payment {
-  text-align: center;
-  margin: 8px 0;
-}
-
-.receipt-upi-title {
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
-  margin-bottom: 6px;
-}
-
-.receipt-upi-qr {
-  display: block;
-  width: 180px !important;
-  height: 180px !important;
-  max-width: 55mm;
-  margin: 0 auto 6px;
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-
-.receipt-upi-amount {
-  font-size: 12px;
-  margin-bottom: 3px;
-}
-
-.receipt-upi-id {
-  font-size: 10px;
-  font-weight: 700;
-  word-break: break-all;
-}
-
-.receipt-upi-warning {
-  color: #991b1b;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-
-  #printable-receipt,
-  #printable-receipt * {
-    visibility: visible;
-  }
-
-  #printable-receipt {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    max-width: 80mm;
-    margin: 0;
-    padding: 3mm;
-  }
-
-  .receipt-upi-qr {
-    width: 40mm !important;
-    height: 40mm !important;
   }
 }

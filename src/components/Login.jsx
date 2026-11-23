@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, ArrowRight, Store, Eye, EyeOff } from 'lucide-react';
-import { supabase, isConfigured } from '../services/supabase.js';
+import { supabase, isConfigured, fetchBranches } from '../services/supabase.js';
 import { useToast } from './ToastProvider.jsx';
 
-const LOGIN_ACCOUNTS = {
-  admin: 'admin@gmail.com',
-  branchOne: 'magicmeat.chn@gmail.com',
-  branchTwo: 'magicmeat.tcy@gmail.com',
-  branchThree: 'magicmeat.tvl@gmail.com'
-};
+const ADMIN_ACCOUNT = 'admin@gmail.com';
 
 export default function Login({ authNotice, onLogout }) {
   const toast = useToast();
   const [account, setAccount] = useState('admin');
+  const [branches, setBranches] = useState([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -23,6 +20,27 @@ export default function Login({ authNotice, onLogout }) {
       toast(authNotice, 'error');
     }
   }, [authNotice, toast]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadBranches() {
+      setBranchesLoading(true);
+      const result = await fetchBranches();
+      if (!active) return;
+
+      const availableBranches = (result.data || []).filter(branch => branch.is_active !== false);
+      setBranches(availableBranches);
+      setBranchesLoading(false);
+
+      if (account !== 'admin' && !availableBranches.some(branch => branch.code === account)) {
+        setAccount('admin');
+      }
+    }
+
+    loadBranches();
+    return () => { active = false; };
+  }, []);
 
   async function handleAuth(e) {
     e.preventDefault();
@@ -38,8 +56,26 @@ export default function Login({ authNotice, onLogout }) {
     }
 
     try {
+      let email = ADMIN_ACCOUNT;
+
+      if (account !== 'admin') {
+        const { data, error: branchError } = await supabase.rpc('get_branch_login_email', {
+          p_branch_code: account
+        });
+
+        if (branchError || !data) {
+          const msg = 'This branch account is unavailable. Please contact the administrator.';
+          setError(msg);
+          toast(msg, 'error');
+          setLoading(false);
+          return;
+        }
+
+        email = data;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email: LOGIN_ACCOUNTS[account],
+        email,
         password
       });
 
@@ -95,6 +131,7 @@ export default function Login({ authNotice, onLogout }) {
               <select
                 id="login-account"
                 value={account}
+                disabled={branchesLoading}
                 onChange={e => {
                   setAccount(e.target.value);
                   setPassword('');
@@ -102,9 +139,11 @@ export default function Login({ authNotice, onLogout }) {
                 }}
               >
                 <option value="admin">Admin</option>
-                <option value="branchOne">Branch 1 · Chennai</option>
-                <option value="branchTwo">Branch 2 · Trichy</option>
-                <option value="branchThree">Branch 3 · Tirunelveli</option>
+                {branches.map(branch => (
+                  <option key={branch.id || branch.code} value={branch.code}>
+                    {branch.code} · {branch.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -133,7 +172,7 @@ export default function Login({ authNotice, onLogout }) {
             </div>
           </div>
 
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
+          <button type="submit" className="auth-submit-btn" disabled={loading || branchesLoading}>
             {loading ? 'Signing in...' : 'Open account'}
             <ArrowRight size={16} />
           </button>

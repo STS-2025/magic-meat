@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { supabase, isConfigured, checkSupabaseHealth, fetchBranches } from './services/supabase.js';
 import Navbar from './components/Navbar.jsx';
-import Billing from './components/Billing.jsx';
+import Billing, { resetBillingDraftCache } from './components/Billing.jsx';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import ProductManager from './components/ProductManager.jsx';
 import InventoryManager from './components/InventoryManager.jsx';
@@ -71,6 +71,7 @@ export default function App() {
       if (s?.user) {
         fetchProfile(s.user);
       } else {
+        resetBillingDraftCache();
         setProfile(null);
         localStorage.removeItem('magicmeat_active_profile');
         setBranches([]);
@@ -120,6 +121,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    resetBillingDraftCache();
     if (supabase) {
       supabase.auth.signOut().catch(() => {});
     }

@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import {
-  INITIAL_BRANCHES,
-  INITIAL_PRODUCTS,
-  INITIAL_INVENTORY,
-  INITIAL_SALES
-} from './mockData.js';
+// import {
+//   INITIAL_BRANCHES,
+//   INITIAL_PRODUCTS,
+//   INITIAL_INVENTORY,
+//   INITIAL_SALES
+// } from './mockData.js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -29,17 +29,9 @@ const LS_BRANCHES = 'magicmeat_branches';
 const LS_PRODUCTS = 'magicmeat_products';
 const LS_INVENTORY = 'magicmeat_inventory';
 const LS_SALES = 'magicmeat_sales';
-const BRANCH_DETAILS_BY_CODE = {
-  BR001: { name: 'Chennai', address: 'Chennai, Tamil Nadu' },
-  BR002: { name: 'Trichy', address: 'Tiruchirappalli, Tamil Nadu' },
-  BR003: { name: 'Tirunelveli', address: 'Tirunelveli, Tamil Nadu' }
-};
 
 function normalizeBranchNames(branches) {
-  return branches.map(branch => ({
-    ...branch,
-    ...(BRANCH_DETAILS_BY_CODE[branch.code] || {})
-  }));
+  return branches.map(branch => ({ ...branch }));
 }
 
 function getLocal(key, defaultVal) {
@@ -250,7 +242,7 @@ export async function fetchAllSales({ branchId } = {}) {
     if (!error) {
       const formatted = (data || []).map(s => ({
         ...s,
-        branch_name: BRANCH_DETAILS_BY_CODE[s.branches?.code]?.name || s.branches?.name || 'Branch',
+        branch_name: s.branches?.code || s.branches?.name || 'Branch',
         invoice_code: `MM-${new Date(s.created_at).toISOString().slice(0, 10).replace(/-/g, '')}-${String(s.invoice_no).padStart(4, '0')}`,
         items: s.sale_items || []
       }));
@@ -711,45 +703,69 @@ export async function createMembershipEnrollment({ customerName, customerPhone, 
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Could not add this membership customer.'
+      error: error instanceof Error ? error.message : 'Could not create this membership enrollment.'
     };
   }
 }
 
-export async function recordMembershipDelivery(membershipId) {
+export async function updateMembershipEnrollment(enrollmentId, updates) {
+  if (!isConfigured || !supabase) {
+    return { success: false, error: 'Supabase must be configured to manage membership customers.' };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('membership_enrollments')
+      .update(updates)
+      .eq('id', enrollmentId)
+      .select()
+      .single();
+    if (!error && data) return { success: true, data, source: 'supabase' };
+    return cloudWriteFailure(health, error?.message || 'Supabase did not confirm the enrollment was updated.');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Could not update this membership enrollment.'
+    };
+  }
+}
+
+export async function cancelMembershipEnrollment(enrollmentId) {
+  if (!isConfigured || !supabase) {
+    return { success: false, error: 'Supabase must be configured to manage membership customers.' };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('cancel_membership_enrollment', {
+      p_enrollment_id: enrollmentId
+    });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Could not cancel this membership enrollment.'
+    };
+  }
+}
+
+export async function recordMembershipDelivery(enrollmentId) {
   if (!isConfigured || !supabase) {
     return { success: false, error: 'Supabase must be configured to record membership deliveries.' };
   }
 
   try {
     const { data, error } = await supabase.rpc('record_membership_delivery', {
-      p_membership_id: membershipId
+      p_membership_id: enrollmentId
     });
+
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Could not record this delivery.'
-    };
-  }
-}
-
-export async function cancelMembershipEnrollment(membershipId) {
-  if (!isConfigured || !supabase) {
-    return { success: false, error: 'Supabase must be configured to cancel membership customers.' };
-  }
-
-  try {
-    const { data, error } = await supabase.rpc('cancel_membership_enrollment', {
-      p_membership_id: membershipId
-    });
-    if (error) return { success: false, error: error.message };
-    return { success: true, data };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Could not cancel this membership.'
+      error: error instanceof Error ? error.message : 'Could not record this membership delivery.'
     };
   }
 }

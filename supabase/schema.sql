@@ -152,6 +152,10 @@ drop policy if exists sales_staff_read on public.sales;
 drop policy if exists saleitems_staff_read on public.sale_items;
 drop policy if exists stock_staff_read on public.stock_movements;
 
+-- Login is anonymous, so active branches must be readable before authentication.
+create policy branches_public_read on public.branches for select to anon
+    using (is_active = true);
+
 -- Owners can manage the network; staff can only read their assigned branch.
 create policy branches_owner_all on public.branches for all to authenticated
     using (public.current_role() = 'owner')
@@ -613,6 +617,28 @@ join public.sales s on s.id = si.sale_id
 join public.branches b on b.id = s.branch_id
 where s.status = 'completed'
 group by s.branch_id, b.name, si.product_id, si.product_name, si.category;
+
+-- Resolve the Auth email for an active branch before sign-in.
+-- This reads auth.users only inside a restricted security-definer RPC.
+create or replace function public.get_branch_login_email(p_branch_code text)
+returns text
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select u.email
+  from public.profiles p
+  join public.branches b on b.id = p.branch_id
+  join auth.users u on u.id = p.id
+  where lower(b.code) = lower(trim(p_branch_code))
+    and b.is_active = true
+    and p.is_active = true
+  order by case p.role when 'cashier' then 0 when 'manager' then 1 else 2 end
+  limit 1;
+$$;
+
+revoke all on function public.get_branch_login_email(text) from public;
+grant execute on function public.get_branch_login_email(text) to anon, authenticated;
 
 -- Completed successfully message
 select 'MAGIC MEAT Database Schema & Seed Data successfully installed!' as status;
