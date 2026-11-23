@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, CheckCircle, X, Download, Share2 } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
@@ -6,8 +6,15 @@ import QRCode from 'qrcode';
 
 export default function ReceiptModal({ isOpen, onClose, sale, branch }) {
   const barcodeRef = useRef(null);
-  const upiQrRef = useRef(null);
+  const [upiQrDataUrl, setUpiQrDataUrl] = useState('');
   const invoiceBarcode = sale ? String(sale.invoice_code || sale.invoice_no || '') : '';
+  const paymentMethod = String(sale?.payment_method || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '')
+    .replace(/qr/, 'upi');
+  const isUpiPayment = paymentMethod === 'upi' || paymentMethod.includes('upi');
+  const upiId = String(branch?.upi_id || branch?.upiId || sale?.upi_id || '').trim();
 
   useEffect(() => {
     if (!isOpen || !invoiceBarcode || !barcodeRef.current) return;
@@ -24,33 +31,37 @@ export default function ReceiptModal({ isOpen, onClose, sale, branch }) {
   }, [isOpen, invoiceBarcode]);
 
   useEffect(() => {
-    if (
-      !isOpen ||
-      !sale ||
-      sale.payment_method !== 'upi' ||
-      !branch?.upi_id ||
-      !upiQrRef.current
-    ) return;
+    let cancelled = false;
+    setUpiQrDataUrl('');
+
+    if (!isOpen || !sale || !isUpiPayment || !upiId) return () => { cancelled = true; };
 
     const amount = Number(sale.total_amount || 0).toFixed(2);
     const invoiceRef = String(sale.invoice_code || sale.invoice_no || 'BILL');
-    const upiName = String(branch.name || 'MAGIC MEAT').replace(/\s+/g, ' ').trim();
+    const upiName = String(branch?.name || sale.branch_name || 'MAGIC MEAT').replace(/\s+/g, ' ').trim();
     const upiUri =
-      `upi://pay?pa=${encodeURIComponent(branch.upi_id.trim())}` +
+      `upi://pay?pa=${encodeURIComponent(upiId)}` +
       `&pn=${encodeURIComponent(upiName)}` +
       `&am=${encodeURIComponent(amount)}` +
       `&cu=INR` +
       `&tr=${encodeURIComponent(invoiceRef)}` +
       `&tn=${encodeURIComponent(`Payment for ${invoiceRef}`)}`;
 
-    QRCode.toCanvas(upiQrRef.current, upiUri, {
-      width: 180,
-      margin: 1,
+    QRCode.toDataURL(upiUri, {
+      width: 360,
+      margin: 2,
       errorCorrectionLevel: 'M'
-    }, error => {
-      if (error) console.error('Could not generate UPI QR code:', error);
+    }).then(dataUrl => {
+      if (!cancelled) setUpiQrDataUrl(dataUrl);
+    }).catch(error => {
+      if (!cancelled) {
+        console.error('Could not generate UPI QR code:', error);
+        setUpiQrDataUrl('');
+      }
     });
-  }, [isOpen, sale, branch]);
+
+    return () => { cancelled = true; };
+  }, [isOpen, sale, branch, isUpiPayment, upiId]);
 
   if (!isOpen || !sale) return null;
 
@@ -205,16 +216,24 @@ export default function ReceiptModal({ isOpen, onClose, sale, branch }) {
           </div>
 
           {/* UPI QR Code Section - Shown only for UPI payments */}
-          {sale.payment_method === 'upi' && (
+          {isUpiPayment && (
             <>
               <div className="receipt-divider">--------------------------------</div>
               <div className="receipt-upi-payment">
-                {branch?.upi_id ? (
+                {upiId ? (
                   <> 
                     <div className="receipt-upi-title">SCAN &amp; PAY</div>
-                    <canvas ref={upiQrRef} className="receipt-upi-qr" />
+                    {upiQrDataUrl ? (
+                      <img
+                        src={upiQrDataUrl}
+                        alt="UPI payment QR code"
+                        className="receipt-upi-qr"
+                      />
+                    ) : (
+                      <div className="receipt-upi-warning">Generating QR code...</div>
+                    )}
                     <div className="receipt-upi-amount">Amount: <strong>{money(sale.total_amount)}</strong></div>
-                    <div className="receipt-upi-id">UPI ID: {branch.upi_id}</div>
+                    <div className="receipt-upi-id">UPI ID: {upiId}</div>
                   </>
                 ) : (
                   <div className="receipt-upi-warning">UPI ID is not configured for this branch.</div>

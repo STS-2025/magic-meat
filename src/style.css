@@ -3185,10 +3185,6 @@ svg {
     scrollbar-width: none;
   }
 
-  .quick-cash-notes::-webkit-scrollbar {
-    display: none;
-  }
-
   .note-btn {
     padding: 6px 10px;
     font-size: 12px;
@@ -4622,6 +4618,8 @@ svg {
   height: 180px !important;
   max-width: 55mm;
   margin: 0 auto 6px;
+  object-fit: contain;
+  image-rendering: pixelated;
 }
 
 .receipt-upi-amount {
@@ -4639,4 +4637,30 @@ svg {
   color: #991b1b;
   font-size: 10px;
   font-weight: 800;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible;
+  }
+
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0;
+    padding: 3mm;
+  }
+
+  .receipt-upi-qr {
+    width: 40mm !important;
+    height: 40mm !important;
+  }
 }
