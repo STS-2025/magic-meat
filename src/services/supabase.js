@@ -507,6 +507,37 @@ export async function createBranchRecord(branch) {
   return { success: true, data: newBranch, source: 'local' };
 }
 
+export async function updateBranchRecord(branchId, updates) {
+  const health = await checkSupabaseHealth();
+  if (health.tablesExist && supabase) {
+    const { data, error } = await supabase
+      .from('branches')
+      .update(updates)
+      .eq('id', branchId)
+      .select()
+      .single();
+    if (!error && data) return { success: true, data, source: 'supabase' };
+    return cloudWriteFailure(health, error?.message || 'Supabase did not confirm the branch was updated.');
+  }
+
+  if (!localFallbackAllowed(health)) {
+    return cloudWriteFailure(health);
+  }
+
+  const branches = getLocal(LS_BRANCHES, INITIAL_BRANCHES);
+  const updated = branches.map(branch =>
+    branch.id === branchId ? { ...branch, ...updates } : branch
+  );
+  if (!setLocal(LS_BRANCHES, updated)) {
+    return { success: false, error: 'Could not save branch in this browser.', source: 'local' };
+  }
+  return {
+    success: true,
+    data: updated.find(branch => branch.id === branchId),
+    source: 'local'
+  };
+}
+
 export async function fetchMembershipBranches() {
   if (!isConfigured || !supabase) {
     const branches = getLocal(LS_BRANCHES, INITIAL_BRANCHES);

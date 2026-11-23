@@ -16,9 +16,13 @@ create table if not exists public.branches (
     name text not null,
     address text,
     phone text,
+    upi_id text,
     is_active boolean default true,
     created_at timestamptz default now()
 );
+
+alter table public.branches
+    add column if not exists upi_id text;
 
 -- 2. Profiles Table (linked with Supabase Auth users)
 create table if not exists public.profiles (
