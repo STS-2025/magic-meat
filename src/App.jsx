@@ -12,6 +12,7 @@ import MembershipManagement from './components/MembershipManagement.jsx';
 import BranchMembership from './components/BranchMembership.jsx';
 import SupabaseSetupModal from './components/SupabaseSetupModal.jsx';
 import Login from './components/Login.jsx';
+import Settings from './components/Settings.jsx';
 import { useToast } from './components/ToastProvider.jsx';
 
 export default function App() {
@@ -254,6 +255,10 @@ export default function App() {
                 ? <MembershipManagement branches={branches} />
                 : <BranchMembership branch={activeBranch} />
             }
+          />
+          <Route
+            path="/settings"
+            element={isOwner ? <Settings /> : <Navigate to="/history" replace />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -10,6 +10,7 @@ import {
   LogOut,
   BadgePercent,
   Users,
+  Settings as SettingsIcon,
   Menu,
   X
 } from 'lucide-react';
@@ -149,6 +150,15 @@ export default function Navbar({
               >
                 <BadgePercent size={16} />
                 <span>Membership Management</span>
+              </NavLink>
+
+              <NavLink
+                to="/settings"
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                onClick={closeMobileMenu}
+              >
+                <SettingsIcon size={16} />
+                <span>Settings</span>
               </NavLink>
             </>
           )}

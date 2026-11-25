@@ -633,7 +633,7 @@ as $$
   where lower(b.code) = lower(trim(p_branch_code))
     and b.is_active = true
     and p.is_active = true
-  order by case p.role when 'cashier' then 0 when 'manager' then 1 else 2 end
+  order by case p.role when 'manager' then 0 when 'cashier' then 1 else 2 end
   limit 1;
 $$;
 

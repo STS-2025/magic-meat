@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-// import {
-//   INITIAL_BRANCHES,
-//   INITIAL_PRODUCTS,
-//   INITIAL_INVENTORY,
-//   INITIAL_SALES
-// } from './mockData.js';
+import {
+  INITIAL_BRANCHES,
+  INITIAL_PRODUCTS,
+  INITIAL_INVENTORY,
+  INITIAL_SALES
+} from './mockData.js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -528,6 +528,40 @@ export async function updateBranchRecord(branchId, updates) {
     data: updated.find(branch => branch.id === branchId),
     source: 'local'
   };
+}
+
+// Branch credentials are managed by a Supabase Edge Function so the service
+// role key and Auth Admin API never reach the browser.
+export async function saveBranchLogin({ branchId, password, fullName }) {
+  if (!isConfigured || !supabase) {
+    return { success: false, error: 'Connect Supabase to create branch manager logins.' };
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke('manage-branch-login', {
+      body: { branchId, password, fullName }
+    });
+    if (error) {
+      let message = error.message || 'Could not save branch login.';
+      try {
+        const response = error.context;
+        if (response instanceof Response) {
+          const details = await response.clone().json();
+          message = details?.error || message;
+        }
+      } catch {
+        // Keep the SDK error message when the function response has no JSON body.
+      }
+      return { success: false, error: message };
+    }
+    if (!data?.success) return { success: false, error: data?.error || 'Could not save branch login.' };
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Could not save branch login.'
+    };
+  }
 }
 
 export async function fetchMembershipBranches() {

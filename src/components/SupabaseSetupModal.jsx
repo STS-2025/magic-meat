@@ -7,7 +7,8 @@ import {
   LOGIN_ACCOUNTS_SQL,
   MEMBERSHIP_PLANS_SQL,
   MASTER_SCHEMA_SQL,
-  RENAME_BRANCHES_SQL
+  RENAME_BRANCHES_SQL,
+  BRANCH_MANAGER_LOGIN_SQL
 } from '../services/schemaSql.js';
 
 export default function SupabaseSetupModal({ isOpen, onClose }) {
@@ -171,9 +172,9 @@ export default function SupabaseSetupModal({ isOpen, onClose }) {
               </li>
               <li>
                 <div className="step-content">
-                  <strong>Step 3: Use existing Admin and create three branch users</strong>
+                  <strong>Step 3: Set up the Admin account</strong>
                   <p>
-                    Create or use the confirmed `admin@gmail.com` user for Admin. Set its password to the owner's Admin password. Create the three branch accounts: `magicmeat.branchone@example.com`, `magicmeat.branchtwo@example.com`, and `magicmeat.branchthree@example.com`.
+                    Create or use the confirmed `admin@gmail.com` user for Admin. Set its password to the owner's Admin password. Branch manager accounts are created from the Outlets form after the Edge Function below is deployed.
                   </p>
                   <a
                     href={`https://supabase.com/dashboard/project/${projectRef}/auth/users`}
@@ -183,7 +184,7 @@ export default function SupabaseSetupModal({ isOpen, onClose }) {
                   >
                     <ExternalLink size={14} /> Open Supabase Auth Users
                   </a>
-                  <p className="mt-2">Then run this SQL once to set Admin and branch permissions:</p>
+                  <p className="mt-2">Then run this SQL to assign the Admin profile and any legacy branch accounts you already have:</p>
                   <button className="btn-primary btn-sm mt-2" onClick={() => handleCopySQL(LOGIN_ACCOUNTS_SQL)}>
                     {copied ? <Check size={16} /> : <Copy size={16} />}
                     {copied ? 'Copied to Clipboard!' : 'Copy Login Accounts SQL'}
@@ -197,6 +198,17 @@ export default function SupabaseSetupModal({ isOpen, onClose }) {
                 </div>
               </li>
             </ol>
+          </div>
+
+          <div className="setup-section">
+            <h3>Branch manager passwords</h3>
+            <p>Run this SQL once for an existing database, then deploy the Edge Function from the project folder with the Supabase CLI:</p>
+            <button className="btn-secondary btn-sm mt-2" onClick={() => handleCopySQL(BRANCH_MANAGER_LOGIN_SQL)}>
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? 'Copied to Clipboard!' : 'Copy Branch Login SQL'}
+            </button>
+            <pre className="setup-command">supabase functions deploy manage-branch-login --project-ref {projectRef}</pre>
+            <p>The function uses the project’s Supabase service role secret on the server. Never add that key to the frontend environment.</p>
           </div>
 
           <div className="setup-callout">
