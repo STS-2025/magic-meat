@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, ArrowRight, Store, Eye, EyeOff } from 'lucide-react';
-import { supabase, isConfigured, fetchBranches } from '../services/supabase.js';
+import { supabase, isConfigured, fetchLoginBranches } from '../services/supabase.js';
 import { useToast } from './ToastProvider.jsx';
 
 const ADMIN_ACCOUNT = 'admin@gmail.com';
@@ -26,7 +26,7 @@ export default function Login({ authNotice, onLogout }) {
 
     async function loadBranches() {
       setBranchesLoading(true);
-      const result = await fetchBranches();
+      const result = await fetchLoginBranches();
       if (!active) return;
 
       const availableBranches = (result.data || []).filter(branch => branch.is_active !== false);

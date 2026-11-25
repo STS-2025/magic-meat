@@ -389,6 +389,21 @@ end;
 $$;
 
 -- 3. Resolve the Auth email for an active branch before sign-in.
+create or replace function public.get_branch_login_branches()
+returns table (id uuid, code text, name text)
+language sql
+security definer
+set search_path = public
+as $$
+  select b.id, b.code, b.name
+  from public.branches b
+  where b.is_active = true
+  order by b.code;
+$$;
+
+revoke all on function public.get_branch_login_branches() from public;
+grant execute on function public.get_branch_login_branches() to anon, authenticated;
+
 create or replace function public.get_branch_login_email(p_branch_code text)
 returns text
 language sql

@@ -276,6 +276,21 @@ revoke execute on function public.add_branch_stock(uuid, uuid, bigint, text) fro
 grant execute on function public.create_sale(text, text, text, numeric, jsonb, uuid) to authenticated;
 grant execute on function public.add_branch_stock(uuid, uuid, bigint, text) to authenticated;
 
+create or replace function public.get_branch_login_branches()
+returns table (id uuid, code text, name text)
+language sql
+security definer
+set search_path = public
+as $$
+  select b.id, b.code, b.name
+  from public.branches b
+  where b.is_active = true
+  order by b.code;
+$$;
+
+revoke all on function public.get_branch_login_branches() from public;
+grant execute on function public.get_branch_login_branches() to anon, authenticated;
+
 revoke all on function public.get_branch_login_email(text) from public;
 grant execute on function public.get_branch_login_email(text) to anon, authenticated;
 

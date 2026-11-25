@@ -178,6 +178,21 @@ export async function fetchBranches() {
   return { data: branches, source: 'local' };
 }
 
+export async function fetchLoginBranches() {
+  if (isConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.rpc('get_branch_login_branches');
+      if (!error && Array.isArray(data)) {
+        return { data: normalizeBranchNames(data), source: 'supabase' };
+      }
+    } catch (error) {
+      console.warn('Could not load login branches from Supabase:', error);
+    }
+  }
+
+  return fetchBranches();
+}
+
 export async function fetchProducts(branchId) {
   const health = await checkSupabaseHealth();
   if (health.tablesExist && supabase) {
