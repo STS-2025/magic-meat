@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { fetchAllSales, fetchBranchStock } from '../services/supabase.js';
+import { fetchAllSales, fetchBranchStock, fetchStockMovements } from '../services/supabase.js';
 import ReceiptModal from './ReceiptModal.jsx';
 import { useToast } from './ToastProvider.jsx';
 
@@ -24,6 +24,7 @@ export default function BranchSalesHistory({ branch }) {
   const toast = useToast();
   const [sales, setSales] = useState([]);
   const [stockMap, setStockMap] = useState({});
+  const [stockMovements, setStockMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dateRange, setDateRange] = useState('today');
@@ -44,18 +45,21 @@ export default function BranchSalesHistory({ branch }) {
     if (!branch?.id) {
       setSales([]);
       setStockMap({});
+      setStockMovements([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const [salesRes, stockRes] = await Promise.all([
+    const [salesRes, stockRes, movementsRes] = await Promise.all([
       fetchAllSales({ branchId: branch.id }),
-      fetchBranchStock(branch.id)
+      fetchBranchStock(branch.id),
+      fetchStockMovements({ branchId: branch.id })
     ]);
     setSales(salesRes.data || []);
     setError(salesRes.error || '');
     setStockMap(stockRes.data || {});
+    setStockMovements(movementsRes.data || []);
     if (salesRes.error) {
       toast(`Could not load branch sales: ${salesRes.error}`, 'error');
     }
@@ -84,10 +88,30 @@ export default function BranchSalesHistory({ branch }) {
     return sales
       .filter(s => {
         const saleDate = new Date(s.created_at);
-        return saleDate >= cutoff;
+      if (dateRange === 'yesterday') {
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        return saleDate >= cutoff && saleDate < end;
+      }
+      return saleDate >= cutoff;
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [sales, dateRange]);
+
+  const filteredStockMovements = useMemo(() => {
+    const now = new Date();
+    let cutoff = new Date(0);
+    if (dateRange === 'today') cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    else if (dateRange === 'yesterday') {
+      cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return stockMovements.filter(m => new Date(m.created_at) >= cutoff && new Date(m.created_at) < end);
+    } else if (dateRange === '7d') cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (dateRange === 'month') cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+    return stockMovements.filter(m => new Date(m.created_at) >= cutoff);
+  }, [stockMovements, dateRange]);
+  const stockInGrams = filteredStockMovements.filter(m => Number(m.qty_grams) > 0).reduce((sum, m) => sum + Number(m.qty_grams), 0);
+  const stockOutGrams = filteredStockMovements.filter(m => Number(m.qty_grams) < 0).reduce((sum, m) => sum + Math.abs(Number(m.qty_grams)), 0);
 
   const invoicePageCount = Math.max(1, Math.ceil(filteredSales.length / INVOICES_PER_PAGE));
   const visibleInvoicePage = Math.min(invoicePage, invoicePageCount);
@@ -131,26 +155,29 @@ export default function BranchSalesHistory({ branch }) {
 
   // CSV Export for this branch
   function exportCSV() {
-    const headers = ['Invoice No', 'Branch', 'Date', 'Customer', 'Payment', 'Total (INR)'];
-    const rows = filteredSales.map(s => [
-      s.invoice_code || s.invoice_no,
-      branch?.name || s.branch_name,
-      new Date(s.created_at).toLocaleString('en-IN'),
-      s.customer_name || 'Walk-in',
-      s.payment_method,
-      s.total_amount
+    const headers = ['Record Type', 'Reference', 'Branch', 'Date & Time', 'Customer', 'Phone', 'Payment', 'Product', 'SKU', 'Category', 'Cut Style', 'Quantity (KG)', 'Unit Price (INR/KG)', 'Amount (INR)', 'Movement', 'Notes'];
+    const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const saleRows = filteredSales.flatMap(s => (s.items?.length ? s.items : [{}]).map(item => [
+      'Sale', s.invoice_code || s.invoice_no, branch?.name || s.branch_name,
+      new Date(s.created_at).toLocaleString('en-IN'), s.customer_name || 'Walk-in', s.customer_phone,
+      s.payment_method, item.product_name, item.product_sku, item.category, item.cutting_style,
+      (Number(item.qty_grams || 0) / 1000).toFixed(3), item.price_per_kg, item.line_total ?? s.total_amount, '', ''
+    ]));
+    const movementRows = filteredStockMovements.map(m => [
+      'Stock Movement', m.reference_id || '', branch?.name || m.branch_name,
+      new Date(m.created_at).toLocaleString('en-IN'), '', '', '', m.product_name, m.product_sku,
+      m.category, '', (Math.abs(Number(m.qty_grams || 0)) / 1000).toFixed(3), '', '',
+      Number(m.qty_grams) >= 0 ? 'Stock In' : 'Stock Out', m.notes
     ]);
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = '\uFEFF' + [headers, ...saleRows, ...movementRows].map(row => row.map(quote).join(',')).join('\r\n');
+    const encodedUri = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `${(branch?.name || 'branch').toLowerCase()}_sales_${dateRange}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(encodedUri);
     toast('Branch sales report CSV downloaded.');
   }
 
@@ -252,6 +279,33 @@ export default function BranchSalesHistory({ branch }) {
               'Live stock healthy'
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="admin-panel mt-4">
+        <div className="panel-header-row">
+          <div>
+            <h2 className="panel-title">Stock In & Stock Out ({rangeLabels[dateRange]})</h2>
+            <p className="admin-subtitle">Received stock and quantities deducted by sales</p>
+          </div>
+          <div className="record-count">In {(stockInGrams / 1000).toFixed(1)} kg · Out {(stockOutGrams / 1000).toFixed(1)} kg</div>
+        </div>
+        <div className="custom-table-wrap">
+          <table className="custom-table">
+            <thead><tr><th>Date & Time</th><th>Product</th><th>Movement</th><th>Quantity</th><th>Reference / Notes</th></tr></thead>
+            <tbody>
+              {filteredStockMovements.slice(0, 20).map(m => (
+                <tr key={m.id}>
+                  <td>{new Date(m.created_at).toLocaleString('en-IN')}</td>
+                  <td>{m.product_name || 'Product'}</td>
+                  <td><span className={`badge-pill ${Number(m.qty_grams) >= 0 ? 'pill-green' : 'pill-amber'}`}>{Number(m.qty_grams) >= 0 ? 'Stock In' : 'Stock Out'}</span></td>
+                  <td>{(Math.abs(Number(m.qty_grams || 0)) / 1000).toFixed(3)} kg</td>
+                  <td>{m.notes || m.reference_id || '—'}</td>
+                </tr>
+              ))}
+              {!filteredStockMovements.length && <tr><td colSpan="5" className="text-center py-6 text-muted">No stock movements recorded for this period.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </div>
 

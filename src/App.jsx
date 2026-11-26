@@ -7,7 +7,6 @@ import AdminDashboard from './components/AdminDashboard.jsx';
 import ProductManager from './components/ProductManager.jsx';
 import InventoryManager from './components/InventoryManager.jsx';
 import BranchManager from './components/BranchManager.jsx';
-import BranchSalesHistory from './components/BranchSalesHistory.jsx';
 import MembershipManagement from './components/MembershipManagement.jsx';
 import BranchMembership from './components/BranchMembership.jsx';
 import SupabaseSetupModal from './components/SupabaseSetupModal.jsx';
@@ -197,7 +196,7 @@ export default function App() {
             element={
               profile?.role === 'owner'
                 ? <Navigate to="/admin" replace />
-                : <BranchSalesHistory branch={activeBranch} />
+                : <AdminDashboard branches={branches} profile={profile} branch={activeBranch} />
             }
           />
           <Route
@@ -215,7 +214,7 @@ export default function App() {
             path="/admin"
             element={
               isOwner ? (
-                <AdminDashboard branches={branches} />
+                <AdminDashboard branches={branches} profile={profile} />
               ) : (
                 <Navigate to="/history" replace />
               )
@@ -233,7 +232,7 @@ export default function App() {
           />
           <Route
             path="/inventory"
-            element={isOwner ? <InventoryManager branches={branches} /> : <Navigate to="/history" replace />}
+            element={<InventoryManager branches={branches} readOnly={!isOwner} />}
           />
           <Route
             path="/branches"

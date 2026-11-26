@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp,
   Store,
@@ -15,14 +16,17 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import { fetchBranches, fetchAllSales, fetchProducts } from '../services/supabase.js';
+import { fetchAllSales, fetchProducts, fetchStockMovements } from '../services/supabase.js';
 import ReceiptModal from './ReceiptModal.jsx';
 import { useToast } from './ToastProvider.jsx';
 
-export default function AdminDashboard({ branches }) {
+export default function AdminDashboard({ branches, profile, branch }) {
+  const navigate = useNavigate();
   const toast = useToast();
+  const isOwner = profile?.role === 'owner';
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
+  const [stockMovements, setStockMovements] = useState([]);
   const [dateRange, setDateRange] = useState('today');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -40,21 +44,31 @@ export default function AdminDashboard({ branches }) {
     loadData(true);
     const interval = window.setInterval(() => loadData(), 15000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [isOwner, branch?.id]);
 
   async function loadData(initialLoad = false) {
     if (initialLoad) setLoading(true);
     else setRefreshing(false);
 
+    if (!isOwner && !branch?.id) {
+      setSales([]);
+      setProducts([]);
+      setStockMovements([]);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [salesRes, prodRes] = await Promise.all([
-        fetchAllSales(),
-        fetchProducts()
+      const [salesRes, prodRes, movementsRes] = await Promise.all([
+        fetchAllSales(isOwner ? {} : { branchId: branch.id }),
+        fetchProducts(isOwner ? undefined : branch.id),
+        fetchStockMovements(isOwner ? {} : { branchId: branch.id })
       ]);
       setSales(salesRes.data || []);
       setSalesError(salesRes.error || '');
       setSalesSource(salesRes.source || '');
       setProducts(prodRes.data || []);
+      setStockMovements(movementsRes.data || []);
       if (salesRes.error) {
         toast(`Could not load sales: ${salesRes.error}`, 'error');
       } else if (!initialLoad) {
@@ -92,14 +106,36 @@ export default function AdminDashboard({ branches }) {
     return sales
       .filter(s => {
       const saleDate = new Date(s.created_at);
-      const matchesDate = saleDate >= cutoff;
-      const matchesBranch =
-        selectedBranchFilter === 'all' || s.branch_id === selectedBranchFilter;
+      const matchesDate = dateRange === 'yesterday'
+        ? saleDate >= cutoff && saleDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        : saleDate >= cutoff;
+      const matchesBranch = !isOwner || selectedBranchFilter === 'all' || s.branch_id === selectedBranchFilter;
       return matchesDate && matchesBranch;
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [sales, dateRange, selectedBranchFilter]);
+  }, [sales, dateRange, selectedBranchFilter, isOwner]);
 
+  const filteredStockMovements = useMemo(() => {
+    const now = new Date();
+    let cutoff = new Date(0);
+    if (dateRange === 'today') cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    else if (dateRange === 'yesterday') {
+      cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return stockMovements.filter(m => {
+        const date = new Date(m.created_at);
+        return date >= cutoff && date < end && (!isOwner || selectedBranchFilter === 'all' || m.branch_id === selectedBranchFilter);
+      });
+    } else if (dateRange === '7d') cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (dateRange === 'month') cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+    return stockMovements.filter(m =>
+      new Date(m.created_at) >= cutoff &&
+      (!isOwner || selectedBranchFilter === 'all' || m.branch_id === selectedBranchFilter)
+    );
+  }, [stockMovements, dateRange, selectedBranchFilter, isOwner]);
+
+  const stockInGrams = filteredStockMovements.filter(m => Number(m.qty_grams) > 0)
+    .reduce((sum, m) => sum + Number(m.qty_grams), 0);
   const invoicePageCount = Math.max(1, Math.ceil(filteredSales.length / INVOICES_PER_PAGE));
   const visibleInvoicePage = Math.min(invoicePage, invoicePageCount);
   const paginatedSales = useMemo(() => {
@@ -109,7 +145,7 @@ export default function AdminDashboard({ branches }) {
 
   useEffect(() => {
     setInvoicePage(1);
-  }, [dateRange, selectedBranchFilter]);
+  }, [dateRange, selectedBranchFilter, branch?.id]);
 
   useEffect(() => {
     setInvoicePage(currentPage => Math.min(currentPage, invoicePageCount));
@@ -126,6 +162,10 @@ export default function AdminDashboard({ branches }) {
     return acc + itemsWeight;
   }, 0);
   const totalKgSold = (totalGramsSold / 1000).toFixed(1);
+
+  function scrollToSection(sectionId) {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Branch-wise aggregation
   const branchStats = useMemo(() => {
@@ -173,26 +213,31 @@ export default function AdminDashboard({ branches }) {
 
   // CSV Export
   function exportCSV() {
-    const headers = ['Invoice No', 'Branch', 'Date', 'Customer', 'Payment', 'Total (INR)'];
-    const rows = filteredSales.map(s => [
-      s.invoice_code || s.invoice_no,
-      s.branch_name,
-      new Date(s.created_at).toLocaleString('en-IN'),
-      s.customer_name || 'Walk-in',
-      s.payment_method,
-      s.total_amount
+    const headers = ['Record Type', 'Reference', 'Branch', 'Date & Time', 'Customer', 'Phone', 'Payment', 'Product', 'SKU', 'Category', 'Cut Style', 'Quantity (KG)', 'Unit Price (INR/KG)', 'Amount (INR)', 'Movement', 'Notes'];
+    const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const salesRows = filteredSales.flatMap(s => (s.items?.length ? s.items : [{}]).map(item => [
+      'Sale', s.invoice_code || s.invoice_no, s.branch_name, new Date(s.created_at).toLocaleString('en-IN'),
+      s.customer_name || 'Walk-in', s.customer_phone, s.payment_method,
+      item.product_name || products.find(p => p.id === item.product_id)?.name,
+      item.product_sku || products.find(p => p.id === item.product_id)?.sku,
+      item.category || products.find(p => p.id === item.product_id)?.category,
+      item.cutting_style, (Number(item.qty_grams || 0) / 1000).toFixed(3), item.price_per_kg,
+      item.line_total ?? s.total_amount, '', ''
+    ]));
+    const movementRows = filteredStockMovements.map(m => [
+      'Stock Movement', m.reference_id || '', m.branch_name, new Date(m.created_at).toLocaleString('en-IN'),
+      '', '', '', m.product_name, m.product_sku, m.category, '', (Math.abs(Number(m.qty_grams || 0)) / 1000).toFixed(3),
+      '', '', Number(m.qty_grams) >= 0 ? 'Stock In' : 'Stock Out', m.notes
     ]);
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = '\uFEFF' + [headers, ...salesRows, ...movementRows].map(row => row.map(quote).join(',')).join('\r\n');
+    const encodedUri = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `magic_meat_sales_${dateRange}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(encodedUri);
     toast('Sales report CSV downloaded successfully.');
   }
 
@@ -201,11 +246,17 @@ export default function AdminDashboard({ branches }) {
       {/* Top Controls & Filters */}
       <div className="admin-header-row">
         <div>
-          <h1 className="admin-page-title">Executive Sales Overview</h1>
-          <p className="admin-subtitle">Live analytics across all Magic Meat retail outlets</p>
+          <h1 className="admin-page-title">
+            {isOwner ? 'Executive Sales Overview' : `${branch?.name || 'Branch'} Process Dashboard`}
+          </h1>
+          <p className="admin-subtitle">
+            {isOwner
+              ? 'Live analytics across all Magic Meat retail outlets'
+              : `Live sales and operations for ${branch?.name || 'your assigned branch'}${branch?.code ? ` · ${branch.code}` : ''}`}
+          </p>
         </div>
 
-        <div className="admin-actions-bar dashboard-actions-bar">
+        <div className={`admin-actions-bar dashboard-actions-bar ${isOwner ? '' : 'branch-dashboard-actions-bar'}`}>
           <div className="filter-group">
             <Calendar size={16} className="filter-icon" />
             <select value={dateRange} onChange={e => setDateRange(e.target.value)}>
@@ -217,20 +268,22 @@ export default function AdminDashboard({ branches }) {
             </select>
           </div>
 
-          <div className="filter-group">
-            <Store size={16} className="filter-icon" />
-            <select
-              value={selectedBranchFilter}
-              onChange={e => setSelectedBranchFilter(e.target.value)}
-            >
-              <option value="all">All Branches ({branches?.length || 0})</option>
-              {branches?.map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isOwner && (
+            <div className="filter-group">
+              <Store size={16} className="filter-icon" />
+              <select
+                value={selectedBranchFilter}
+                onChange={e => setSelectedBranchFilter(e.target.value)}
+              >
+                <option value="all">All Branches ({branches?.length || 0})</option>
+                {branches?.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <button className="btn-secondary btn-sm" onClick={exportCSV}>
             <Download size={14} /> Export CSV
@@ -240,10 +293,10 @@ export default function AdminDashboard({ branches }) {
       </div>
 
       {/* KPI Cards */}
-      <div className="kpi-grid">
+      <div className={`kpi-grid ${isOwner ? '' : 'branch-kpi-grid'}`}>
         <div className="kpi-card">
           <div className="kpi-top">
-            <span className="kpi-label">Total Revenue</span>
+            <span className="kpi-label">{isOwner ? 'Total Revenue' : 'Branch Revenue'}</span>
             <div className="kpi-icon-wrap bg-emerald">
               <TrendingUp size={20} color="#10b981" />
             </div>
@@ -254,7 +307,7 @@ export default function AdminDashboard({ branches }) {
           </div>
         </div>
 
-        <div className="kpi-card">
+        <button type="button" className="kpi-card kpi-card-action" onClick={() => scrollToSection('sales-ledger')}>
           <div className="kpi-top">
             <span className="kpi-label">Bills Count</span>
             <div className="kpi-icon-wrap bg-blue">
@@ -263,9 +316,9 @@ export default function AdminDashboard({ branches }) {
           </div>
           <div className="kpi-value">{totalBills}</div>
           <div className="kpi-footer">Avg. {money(avgBillValue)} / bill</div>
-        </div>
+        </button>
 
-        <div className="kpi-card">
+        <button type="button" className="kpi-card kpi-card-action" onClick={() => navigate('/inventory?view=out')}>
           <div className="kpi-top">
             <span className="kpi-label">Total Meat Sold</span>
             <div className="kpi-icon-wrap bg-amber">
@@ -274,9 +327,20 @@ export default function AdminDashboard({ branches }) {
           </div>
           <div className="kpi-value">{totalKgSold} kg</div>
           <div className="kpi-footer">Across all fresh cuts</div>
-        </div>
+        </button>
 
-        <div className="kpi-card">
+        {isOwner && <button type="button" className="kpi-card kpi-card-action" onClick={() => navigate('/inventory?view=in')}>
+          <div className="kpi-top">
+            <span className="kpi-label">Total Stock In</span>
+            <div className="kpi-icon-wrap bg-blue">
+              <Layers size={20} color="#3b82f6" />
+            </div>
+          </div>
+          <div className="kpi-value">{(stockInGrams / 1000).toFixed(1)} kg</div>
+          <div className="kpi-footer">Received in active period</div>
+        </button>}
+
+        {isOwner && <button type="button" className="kpi-card kpi-card-action" onClick={() => navigate('/branches')}>
           <div className="kpi-top">
             <span className="kpi-label">Active Branches</span>
             <div className="kpi-icon-wrap bg-purple">
@@ -285,10 +349,11 @@ export default function AdminDashboard({ branches }) {
           </div>
           <div className="kpi-value">{branches?.filter(b => b.is_active).length || 0}</div>
           <div className="kpi-footer">Tamil Nadu Network</div>
-        </div>
+        </button>}
       </div>
 
       {/* Each Branch Live Process & Operations Tracker */}
+      {isOwner && (
       <div className="admin-panel mb-6">
         <div className="panel-header-row">
           <div>
@@ -385,10 +450,12 @@ export default function AdminDashboard({ branches }) {
           })}
         </div>
       </div>
+      )}
 
       {/* Split Row: Branch Sales & Payment Channels */}
-      <div className="admin-split-grid">
+      <div className={isOwner ? 'admin-split-grid' : ''}>
         {/* Branch-wise breakdown */}
+        {isOwner && (
         <div className="admin-panel">
           <h2 className="panel-title">Branch-wise Sales Performance</h2>
           <div className="branch-bars-list">
@@ -416,10 +483,11 @@ export default function AdminDashboard({ branches }) {
             ))}
           </div>
         </div>
+        )}
 
         {/* Payment Channels & Closing Summary */}
         <div className="admin-panel">
-          <h2 className="panel-title">Payment Collection Breakdown</h2>
+          <h2 className="panel-title">{isOwner ? 'Payment Collection Breakdown' : `Branch Payment Collections (${dateRange})`}</h2>
           <div className="payment-breakdown-grid">
             <div className="payment-tile">
               <span className="pay-tile-label">💵 Cash Collected</span>
@@ -442,14 +510,14 @@ export default function AdminDashboard({ branches }) {
             <Sparkles size={18} color="#10b981" />
             <div>
               <strong>Instant Daily Cash Drawer Closing</strong>
-              <p>Physical cash to collect at counters today: <b>{money(paymentBreakdown.cash)}</b></p>
+              <p>{isOwner ? 'Physical cash to collect at counters today:' : 'Physical cash in this branch register:'} <b>{money(paymentBreakdown.cash)}</b></p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Recent Sales Ledger Table */}
-      <div className="admin-panel mt-4">
+      <div id="sales-ledger" className="admin-panel mt-4">
         <div className="panel-header-row">
           <h2 className="panel-title">Recent Invoices & Sales Ledger</h2>
           <span className="record-count">{filteredSales.length} Transactions</span>

@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Package, Plus, AlertTriangle, ArrowDownLeft, Store, RefreshCw } from 'lucide-react';
-import { fetchProducts, fetchBranchStock, addStockRecord } from '../services/supabase.js';
+import { fetchProducts, fetchBranchStock, fetchStockMovements, addStockRecord } from '../services/supabase.js';
 import { useToast } from './ToastProvider.jsx';
 
-export default function InventoryManager({ branches }) {
+const ROWS_PER_PAGE = 15;
+
+export default function InventoryManager({ branches, readOnly = false }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('view');
   const toast = useToast();
   const [selectedBranchId, setSelectedBranchId] = useState(branches?.[0]?.id || '');
   const [products, setProducts] = useState([]);
   const [stockMap, setStockMap] = useState({});
+  const [stockMovements, setStockMovements] = useState([]);
+  const [movementType, setMovementType] = useState(() =>
+    requestedView === 'in' || requestedView === 'out' ? requestedView : 'matrix'
+  );
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showInwardModal, setShowInwardModal] = useState(false);
 
@@ -30,14 +40,24 @@ export default function InventoryManager({ branches }) {
     }
   }, [selectedBranchId]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBranchId, movementType]);
+
+  useEffect(() => {
+    setMovementType(requestedView === 'in' || requestedView === 'out' ? requestedView : 'matrix');
+  }, [requestedView]);
+
   async function loadInventory() {
     setLoading(true);
-    const [pRes, sRes] = await Promise.all([
+    const [pRes, sRes, movementsRes] = await Promise.all([
       fetchProducts(selectedBranchId),
-      fetchBranchStock(selectedBranchId)
+      fetchBranchStock(selectedBranchId),
+      fetchStockMovements({ branchId: selectedBranchId })
     ]);
     setProducts(pRes.data || []);
     setStockMap(sRes.data || {});
+    setStockMovements(movementsRes.data || []);
     setLoading(false);
   }
 
@@ -68,6 +88,15 @@ export default function InventoryManager({ branches }) {
 
   // Total stock calculation
   const totalStockKg = Object.values(stockMap).reduce((acc, g) => acc + (Number(g) || 0), 0) / 1000;
+  const visibleStockMovements = stockMovements.filter(m =>
+    movementType === 'in' ? Number(m.qty_grams) > 0 : movementType === 'out' && Number(m.qty_grams) < 0
+  );
+  const inventoryRows = movementType === 'matrix' ? products : visibleStockMovements;
+  const pageCount = Math.max(1, Math.ceil(inventoryRows.length / ROWS_PER_PAGE));
+  const visiblePage = Math.min(currentPage, pageCount);
+  const firstVisibleRow = (visiblePage - 1) * ROWS_PER_PAGE;
+  const paginatedProducts = products.slice(firstVisibleRow, firstVisibleRow + ROWS_PER_PAGE);
+  const paginatedStockMovements = visibleStockMovements.slice(firstVisibleRow, firstVisibleRow + ROWS_PER_PAGE);
 
   return (
     <div className="admin-container">
@@ -77,7 +106,7 @@ export default function InventoryManager({ branches }) {
           <p className="admin-subtitle">Live weighment inventory and farm inward records</p>
         </div>
 
-        <div className="admin-actions-bar inventory-actions-bar">
+        {!readOnly && <div className="admin-actions-bar inventory-actions-bar">
           <div className="filter-group">
             <Store size={16} className="filter-icon" />
             <select
@@ -95,7 +124,7 @@ export default function InventoryManager({ branches }) {
           <button className="btn-primary" onClick={() => setShowInwardModal(true)}>
             <ArrowDownLeft size={16} /> Inward Stock (+KG)
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Stock summary cards */}
@@ -126,15 +155,40 @@ export default function InventoryManager({ branches }) {
       {/* Inventory table */}
       <div className="admin-panel mt-4">
         <div className="panel-header-row inventory-panel-header">
-          <h2 className="panel-title">Stock Matrix · {selectedBranch?.name}</h2>
-          <button className="btn-secondary btn-sm" onClick={loadInventory}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
+          <div className="inventory-list-heading">
+            <h2 className="panel-title">
+              {movementType === 'matrix' ? 'Current Stock' : movementType === 'in' ? 'Stock In' : 'Stock Out'} · {selectedBranch?.name}
+            </h2>
+            {movementType !== 'matrix' && <span className="record-count">{visibleStockMovements.length} records</span>}
+          </div>
+          <div className="inventory-list-actions">
+            <div className="filter-group inventory-movement-filter">
+              <select
+                aria-label="Inventory list view"
+                value={movementType}
+                onChange={e => {
+                  const view = e.target.value;
+                  setMovementType(view);
+                  const params = new URLSearchParams(searchParams);
+                  if (view === 'matrix') params.delete('view');
+                  else params.set('view', view);
+                  setSearchParams(params, { replace: true });
+                }}
+              >
+                <option value="matrix">Current Stock</option>
+                <option value="in">Stock In</option>
+                <option value="out">Stock Out</option>
+              </select>
+            </div>
+            <button className="btn-secondary btn-sm" onClick={loadInventory}>
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
         </div>
 
         <div className="custom-table-wrap">
-          <table className="custom-table">
-            <thead>
+          <table className={`custom-table ${movementType === 'matrix' ? 'inventory-stock-matrix' : 'inventory-stock-movements'}`}>
+            {movementType === 'matrix' ? <thead>
               <tr>
                 <th>Product SKU</th>
                 <th>Meat Variety & Cut</th>
@@ -142,11 +196,19 @@ export default function InventoryManager({ branches }) {
                 <th>Price / KG</th>
                 <th>Current Stock (KG)</th>
                 <th>Stock Status</th>
-                <th>Actions</th>
+                {!readOnly && <th>Actions</th>}
               </tr>
-            </thead>
-            <tbody>
-              {products.map(p => {
+            </thead> : <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Product</th>
+                <th>Movement</th>
+                <th>Quantity</th>
+                <th>Reference / Notes</th>
+              </tr>
+            </thead>}
+            {movementType === 'matrix' ? <tbody>
+              {paginatedProducts.map(p => {
                 const grams = stockMap[p.id] || 0;
                 const kg = (grams / 1000).toFixed(2);
                 const isLow = grams < 5000;
@@ -179,7 +241,7 @@ export default function InventoryManager({ branches }) {
                         <span className="badge-pill pill-green">In Stock</span>
                       )}
                     </td>
-                    <td>
+                    {!readOnly && <td>
                       <button
                         className="btn-outline btn-sm"
                         onClick={() => {
@@ -187,15 +249,55 @@ export default function InventoryManager({ branches }) {
                           setShowInwardModal(true);
                         }}
                       >
-                        + Add Stock
+                        <span className="inventory-add-stock-full">+ Add Stock</span>
+                        <span className="inventory-add-stock-compact">+ Add</span>
                       </button>
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}
-            </tbody>
+            </tbody> : <tbody>
+              {paginatedStockMovements.map(m => (
+                <tr key={m.id}>
+                  <td>{new Date(m.created_at).toLocaleString('en-IN')}</td>
+                  <td>{m.product_name || products.find(p => p.id === m.product_id)?.name || 'Product'}</td>
+                  <td><span className={`badge-pill ${movementType === 'in' ? 'pill-green' : 'pill-amber'}`}>{movementType === 'in' ? 'Stock In' : 'Stock Out'}</span></td>
+                  <td>{(Math.abs(Number(m.qty_grams || 0)) / 1000).toFixed(3)} kg</td>
+                  <td>{m.notes || m.reference_id || '—'}</td>
+                </tr>
+              ))}
+              {!visibleStockMovements.length && (
+                <tr><td colSpan="5" className="text-center py-6 text-muted">No {movementType === 'in' ? 'stock in' : 'stock out'} records for this branch.</td></tr>
+              )}
+            </tbody>}
           </table>
         </div>
+        {inventoryRows.length > ROWS_PER_PAGE && (
+          <div className="inventory-pagination" aria-label="Inventory pagination">
+            <span>
+              Showing {firstVisibleRow + 1}-{Math.min(firstVisibleRow + ROWS_PER_PAGE, inventoryRows.length)} of {inventoryRows.length} records
+            </span>
+            <div className="inventory-pagination-controls">
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                disabled={visiblePage === 1}
+              >
+                Previous
+              </button>
+              <span>Page {visiblePage} of {pageCount}</span>
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => setCurrentPage(page => Math.min(pageCount, page + 1))}
+                disabled={visiblePage === pageCount}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Inward Modal */}

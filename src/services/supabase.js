@@ -29,6 +29,7 @@ const LS_BRANCHES = 'magicmeat_branches';
 const LS_PRODUCTS = 'magicmeat_products';
 const LS_INVENTORY = 'magicmeat_inventory';
 const LS_SALES = 'magicmeat_sales';
+const LS_STOCK_MOVEMENTS = 'magicmeat_stock_movements';
 
 function normalizeBranchNames(branches) {
   return branches.map(branch => ({ ...branch }));
@@ -276,6 +277,35 @@ export async function fetchAllSales({ branchId } = {}) {
   };
 }
 
+export async function fetchStockMovements({ branchId } = {}) {
+  const health = await checkSupabaseHealth();
+  if (health.tablesExist && supabase) {
+    let query = supabase
+      .from('stock_movements')
+      .select('*, branches(name, code), products(name, category, sku)')
+      .order('created_at', { ascending: false });
+    if (branchId) query = query.eq('branch_id', branchId);
+    const { data, error } = await query;
+    if (!error) {
+      const formatted = (data || []).map(movement => ({
+        ...movement,
+        branch_name: movement.branches?.name || movement.branches?.code || 'Branch',
+        product_name: movement.products?.name || 'Product',
+        product_sku: movement.products?.sku || '',
+        category: movement.products?.category || ''
+      }));
+      return { data: formatted, source: 'supabase' };
+    }
+    if (!canUseLocalData(health)) return { data: [], source: 'supabase', error: error.message };
+  }
+  if (!canUseLocalData(health)) return { data: [], source: 'supabase', error: health.message };
+  const movements = getLocal(LS_STOCK_MOVEMENTS, []);
+  return {
+    data: branchId ? movements.filter(m => m.branch_id === branchId) : movements,
+    source: 'local'
+  };
+}
+
 export async function processSale({
   branchId,
   customerName,
@@ -392,6 +422,20 @@ export async function processSale({
     return { success: false, error: 'Could not save sale in this browser.', source: 'local' };
   }
 
+  const saleMovements = newSale.items.map((item, index) => ({
+    id: `local-sale-${newSale.id}-${index}`,
+    branch_id: newSale.branch_id,
+    branch_name: curBranch.name,
+    product_id: items[index].id,
+    product_name: item.product_name,
+    movement_type: 'sale',
+    qty_grams: -Number(item.qty_grams || 0),
+    reference_id: newSale.id,
+    notes: `Sale ${invoiceCode}`,
+    created_at: newSale.created_at
+  }));
+  setLocal(LS_STOCK_MOVEMENTS, [...saleMovements, ...getLocal(LS_STOCK_MOVEMENTS, [])]);
+
   return {
     success: true,
     invoiceCode,
@@ -427,6 +471,22 @@ export async function addStockRecord({ branchId, productId, qtyGrams, notes = 'S
   if (!setLocal(LS_INVENTORY, allInv)) {
     return { success: false, error: 'Could not save stock in this browser.', source: 'local' };
   }
+  const branch = getLocal(LS_BRANCHES, INITIAL_BRANCHES).find(item => item.id === branchId);
+  const product = getLocal(LS_PRODUCTS, INITIAL_PRODUCTS).find(item => item.id === productId);
+  const movement = {
+    id: `local-inward-${Date.now()}`,
+    branch_id: branchId,
+    branch_name: branch?.name || 'Branch',
+    product_id: productId,
+    product_name: product?.name || 'Product',
+    product_sku: product?.sku || '',
+    category: product?.category || '',
+    movement_type: 'inward',
+    qty_grams: Number(qtyGrams),
+    notes,
+    created_at: new Date().toISOString()
+  };
+  setLocal(LS_STOCK_MOVEMENTS, [movement, ...getLocal(LS_STOCK_MOVEMENTS, [])]);
   return { success: true, source: 'local' };
 }
 
