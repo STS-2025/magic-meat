@@ -232,7 +232,7 @@ export default function App() {
           />
           <Route
             path="/inventory"
-            element={<InventoryManager branches={branches} readOnly={!isOwner} />}
+            element={<InventoryManager branches={branches} lockedBranchId={isOwner ? null : activeBranch?.id} />}
           />
           <Route
             path="/branches"

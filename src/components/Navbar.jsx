@@ -86,6 +86,15 @@ export default function Navbar({
               </NavLink>
 
               <NavLink
+                to="/inventory"
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                onClick={closeMobileMenu}
+              >
+                <Layers size={16} />
+                <span>Stock Matrix</span>
+              </NavLink>
+
+              <NavLink
                 to="/membership"
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 onClick={closeMobileMenu}

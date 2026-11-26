@@ -6,11 +6,11 @@ import { useToast } from './ToastProvider.jsx';
 
 const ROWS_PER_PAGE = 15;
 
-export default function InventoryManager({ branches, readOnly = false }) {
+export default function InventoryManager({ branches, lockedBranchId = null }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedView = searchParams.get('view');
   const toast = useToast();
-  const [selectedBranchId, setSelectedBranchId] = useState(branches?.[0]?.id || '');
+  const [selectedBranchId, setSelectedBranchId] = useState(lockedBranchId || branches?.[0]?.id || '');
   const [products, setProducts] = useState([]);
   const [stockMap, setStockMap] = useState({});
   const [stockMovements, setStockMovements] = useState([]);
@@ -29,10 +29,14 @@ export default function InventoryManager({ branches, readOnly = false }) {
   const money = n => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(n || 0));
 
   useEffect(() => {
+    if (lockedBranchId) {
+      setSelectedBranchId(lockedBranchId);
+      return;
+    }
     if (branches && branches.length > 0 && !selectedBranchId) {
       setSelectedBranchId(branches[0].id);
     }
-  }, [branches]);
+  }, [branches, lockedBranchId, selectedBranchId]);
 
   useEffect(() => {
     if (selectedBranchId) {
@@ -106,8 +110,8 @@ export default function InventoryManager({ branches, readOnly = false }) {
           <p className="admin-subtitle">Live weighment inventory and farm inward records</p>
         </div>
 
-        {!readOnly && <div className="admin-actions-bar inventory-actions-bar">
-          <div className="filter-group">
+        <div className="admin-actions-bar inventory-actions-bar">
+          {!lockedBranchId && <div className="filter-group">
             <Store size={16} className="filter-icon" />
             <select
               value={selectedBranchId}
@@ -119,12 +123,15 @@ export default function InventoryManager({ branches, readOnly = false }) {
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
 
-          <button className="btn-primary" onClick={() => setShowInwardModal(true)}>
+          <button className="btn-primary" onClick={() => {
+            setInwardProduct('');
+            setShowInwardModal(true);
+          }}>
             <ArrowDownLeft size={16} /> Inward Stock (+KG)
           </button>
-        </div>}
+        </div>
       </div>
 
       {/* Stock summary cards */}
@@ -196,7 +203,7 @@ export default function InventoryManager({ branches, readOnly = false }) {
                 <th>Price / KG</th>
                 <th>Current Stock (KG)</th>
                 <th>Stock Status</th>
-                {!readOnly && <th>Actions</th>}
+                <th>Actions</th>
               </tr>
             </thead> : <thead>
               <tr>
@@ -241,7 +248,7 @@ export default function InventoryManager({ branches, readOnly = false }) {
                         <span className="badge-pill pill-green">In Stock</span>
                       )}
                     </td>
-                    {!readOnly && <td>
+                    <td>
                       <button
                         className="btn-outline btn-sm"
                         onClick={() => {
@@ -252,7 +259,7 @@ export default function InventoryManager({ branches, readOnly = false }) {
                         <span className="inventory-add-stock-full">+ Add Stock</span>
                         <span className="inventory-add-stock-compact">+ Add</span>
                       </button>
-                    </td>}
+                    </td>
                   </tr>
                 );
               })}
@@ -313,17 +320,25 @@ export default function InventoryManager({ branches, readOnly = false }) {
             <form onSubmit={handleInwardStock}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Receiving Branch *</label>
-                  <select
-                    value={selectedBranchId}
-                    onChange={e => setSelectedBranchId(e.target.value)}
-                  >
-                    {branches?.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
+                  <label>Receiving Branch</label>
+                  {lockedBranchId ? (
+                    <input
+                      type="text"
+                      value={`${selectedBranch?.name || 'Assigned branch'}${selectedBranch?.code ? ` (${selectedBranch.code})` : ''}`}
+                      readOnly
+                    />
+                  ) : (
+                    <select
+                      value={selectedBranchId}
+                      onChange={e => setSelectedBranchId(e.target.value)}
+                    >
+                      {branches?.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="form-group">

@@ -16,7 +16,7 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import { fetchAllSales, fetchProducts, fetchStockMovements } from '../services/supabase.js';
+import { fetchAllSales, fetchProducts, fetchBranchStock, fetchStockMovements } from '../services/supabase.js';
 import ReceiptModal from './ReceiptModal.jsx';
 import { useToast } from './ToastProvider.jsx';
 
@@ -26,6 +26,7 @@ export default function AdminDashboard({ branches, profile, branch }) {
   const isOwner = profile?.role === 'owner';
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
+  const [branchStock, setBranchStock] = useState({});
   const [stockMovements, setStockMovements] = useState([]);
   const [dateRange, setDateRange] = useState('today');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
@@ -53,21 +54,24 @@ export default function AdminDashboard({ branches, profile, branch }) {
     if (!isOwner && !branch?.id) {
       setSales([]);
       setProducts([]);
+      setBranchStock({});
       setStockMovements([]);
       setLoading(false);
       return;
     }
 
     try {
-      const [salesRes, prodRes, movementsRes] = await Promise.all([
+      const [salesRes, prodRes, stockRes, movementsRes] = await Promise.all([
         fetchAllSales(isOwner ? {} : { branchId: branch.id }),
         fetchProducts(isOwner ? undefined : branch.id),
+        isOwner ? Promise.resolve({ data: {} }) : fetchBranchStock(branch.id),
         fetchStockMovements(isOwner ? {} : { branchId: branch.id })
       ]);
       setSales(salesRes.data || []);
       setSalesError(salesRes.error || '');
       setSalesSource(salesRes.source || '');
       setProducts(prodRes.data || []);
+      setBranchStock(stockRes.data || {});
       setStockMovements(movementsRes.data || []);
       if (salesRes.error) {
         toast(`Could not load sales: ${salesRes.error}`, 'error');
@@ -162,6 +166,8 @@ export default function AdminDashboard({ branches, profile, branch }) {
     return acc + itemsWeight;
   }, 0);
   const totalKgSold = (totalGramsSold / 1000).toFixed(1);
+  const totalStorageKg = Object.values(branchStock)
+    .reduce((sum, grams) => sum + (Number(grams) || 0), 0) / 1000;
 
   function scrollToSection(sectionId) {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -328,6 +334,17 @@ export default function AdminDashboard({ branches, profile, branch }) {
           <div className="kpi-value">{totalKgSold} kg</div>
           <div className="kpi-footer">Across all fresh cuts</div>
         </button>
+
+        {!isOwner && <button type="button" className="kpi-card kpi-card-action" onClick={() => navigate('/inventory')}>
+          <div className="kpi-top">
+            <span className="kpi-label">Total in Storage</span>
+            <div className="kpi-icon-wrap bg-blue">
+              <Package size={20} color="#3b82f6" />
+            </div>
+          </div>
+          <div className="kpi-value">{totalStorageKg.toFixed(1)} kg</div>
+          <div className="kpi-footer">Current stock across all cuts</div>
+        </button>}
 
         {isOwner && <button type="button" className="kpi-card kpi-card-action" onClick={() => navigate('/inventory?view=in')}>
           <div className="kpi-top">
