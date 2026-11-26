@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -41,6 +41,9 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState(savedDraft.cart || []);
   const [gramInputs, setGramInputs] = useState({});
+  const [customWeightProduct, setCustomWeightProduct] = useState(null);
+  const [customWeightKg, setCustomWeightKg] = useState('');
+  const customWeightInputRef = useRef(null);
   const [customerName, setCustomerName] = useState(savedDraft.customerName || '');
   const [customerPhone, setCustomerPhone] = useState(savedDraft.customerPhone || '');
   const [paymentMethod, setPaymentMethod] = useState(savedDraft.paymentMethod || 'cash');
@@ -110,6 +113,20 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
     });
   }
 
+  function openCustomWeight(product) {
+    setCustomWeightProduct(product);
+    setCustomWeightKg('');
+  }
+
+  function addCustomWeight() {
+    const kg = Number(customWeightKg);
+    if (!Number.isFinite(kg) || kg <= 0) return;
+    customWeightInputRef.current?.blur();
+    addToCart(customWeightProduct, Math.round(kg * 1000));
+    setCustomWeightProduct(null);
+    setCustomWeightKg('');
+  }
+
   function updateItemGrams(productId, grams) {
     const g = Math.max(1, Number(grams) || 1);
     setCart(prev =>
@@ -119,8 +136,8 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
 
   function handleGramInputChange(productId, value) {
     setGramInputs(prev => ({ ...prev, [productId]: value }));
-    if (/^\d+$/.test(value) && Number(value) > 0) {
-      updateItemGrams(productId, value);
+    if (/^\d*\.?\d+$/.test(value) && Number(value) > 0) {
+      updateItemGrams(productId, Math.round(Number(value) * 1000));
     }
   }
 
@@ -355,6 +372,14 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
                     >
                       +2 kg
                     </button>
+                    <button
+                      className="weight-btn weight-custom-btn"
+                      title="Add a custom quantity in kilograms"
+                      aria-label={`Add custom quantity of ${p.name}`}
+                      onClick={() => openCustomWeight(p)}
+                    >
+                      <Plus size={15} aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
               );
@@ -411,7 +436,7 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
               <div className="cart-empty-state">
                 <ShoppingCart size={40} className="empty-cart-icon" />
                 <p>Counter Cart is Empty</p>
-                <small>Click any meat item or weight preset on the left to add.</small>
+                <small>Click a weight button on the left to add.</small>
               </div>
             ) : (
               cart.map(item => {
@@ -448,16 +473,16 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
                         <div className="gram-input-wrap">
                           <input
                             type="text"
-                            inputMode="numeric"
-                            value={gramInputs[item.id] ?? item.grams}
+                            inputMode="decimal"
+                            value={gramInputs[item.id] ?? (item.grams / 1000).toFixed(3).replace(/\.?0+$/, '')}
                             onFocus={e => {
-                              setGramInputs(prev => ({ ...prev, [item.id]: String(item.grams) }));
+                              setGramInputs(prev => ({ ...prev, [item.id]: (item.grams / 1000).toFixed(3).replace(/\.?0+$/, '') }));
                               e.currentTarget.select();
                             }}
                             onChange={e => handleGramInputChange(item.id, e.target.value)}
                             onBlur={() => finishGramInput(item.id)}
                           />
-                          <span className="g-unit">g</span>
+                          <span className="g-unit">kg</span>
                         </div>
                         <button
                           className="step-btn"
@@ -604,6 +629,37 @@ export default function Billing({ profile, activeBranch, branches, onSelectBranc
         sale={lastSale}
         branch={currentBranch}
       />
+      {customWeightProduct && (
+        <div className="custom-weight-overlay" onMouseDown={e => {
+          if (e.target === e.currentTarget) setCustomWeightProduct(null);
+        }}>
+          <form className="custom-weight-dialog" onSubmit={e => {
+            e.preventDefault();
+            addCustomWeight();
+          }}>
+            <h2>Add quantity</h2>
+            <p>{customWeightProduct.name}</p>
+            <label htmlFor="custom-weight-kg">Quantity (kg)</label>
+            <input
+              ref={customWeightInputRef}
+              id="custom-weight-kg"
+              type="number"
+              min="0.001"
+              step="0.001"
+              inputMode="decimal"
+              autoFocus
+              required
+              value={customWeightKg}
+              onChange={e => setCustomWeightKg(e.target.value)}
+              placeholder="e.g. 1.25"
+            />
+            <div className="custom-weight-actions">
+              <button type="button" onClick={() => setCustomWeightProduct(null)}>Cancel</button>
+              <button type="submit" disabled={!Number.isFinite(Number(customWeightKg)) || Number(customWeightKg) <= 0}>Add</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

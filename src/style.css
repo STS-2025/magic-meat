@@ -32,6 +32,112 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+/* Custom kilogram entry on the billing counter */
+.pos-container .weight-presets {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.pos-container .weight-custom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-container .gram-input-wrap input {
+  width: 78px;
+  padding-right: 22px;
+}
+
+.custom-weight-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(15 23 42 / 55%);
+}
+
+.custom-weight-dialog {
+  width: min(100%, 360px);
+  padding: 22px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 25%);
+}
+
+.custom-weight-dialog h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.custom-weight-dialog p {
+  margin: 0 0 18px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.custom-weight-dialog label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.custom-weight-dialog input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+}
+
+@media (max-width: 600px) {
+  .custom-weight-overlay .custom-weight-dialog {
+    transform: translateY(-72px);
+  }
+}
+
+.custom-weight-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.custom-weight-actions button {
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.custom-weight-actions button[type="submit"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.custom-weight-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .pos-container .weight-presets {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .pos-container .weight-presets .weight-btn:nth-child(-n + 2) {
+    grid-column: span 3;
+  }
+
+  .pos-container .weight-presets .weight-btn:nth-child(n + 3) {
+    grid-column: span 2;
+  }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -2574,6 +2680,13 @@ svg {
   margin: 12px 0 6px 0;
 }
 
+.receipt-upi-qr {
+  display: block;
+  width: 128px;
+  height: auto;
+  margin: 6px auto;
+}
+
 .barcode-svg {
   display: block;
   width: 100%;
@@ -4525,6 +4638,10 @@ svg {
 }
 
 @media (max-width: 767px) {
+  .pos-container .cart-items-scroll {
+    overscroll-behavior-y: auto;
+  }
+
   .pos-container .pos-cart-pane .customer-inputs-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
