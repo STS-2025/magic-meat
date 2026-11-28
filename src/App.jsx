@@ -82,6 +82,38 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // A sleeping Supabase project can reject the first profile request after sign-in.
+  // Keep checking while that authenticated session has no profile, then reload the
+  // app data once the database responds so the user does not need to refresh.
+  useEffect(() => {
+    const user = session?.user;
+    const databaseUnavailable = health?.status === 'offline' || health?.status === 'error';
+    if (!user || !profileCheckComplete || !databaseUnavailable) return;
+
+    let active = true;
+    let timeoutId;
+
+    async function checkForDatabase() {
+      const healthResult = await checkSupabaseHealth(true);
+      if (!active) return;
+
+      setHealth(healthResult);
+      if (healthResult.status === 'live') {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.user?.id === user.id) window.location.reload();
+        return;
+      }
+
+      timeoutId = setTimeout(checkForDatabase, 5000);
+    }
+
+    timeoutId = setTimeout(checkForDatabase, 5000);
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [session?.user?.id, profileCheckComplete, health?.status]);
+
   async function fetchProfile(user) {
     if (!user) return;
     setProfileCheckComplete(false);
@@ -146,6 +178,21 @@ export default function App() {
         <img className="loading-meat-pulse" src="/magic-meat-logo.png" alt="" />
         <h2>MAGIC MEAT CLOUD</h2>
         <p>Connecting butchery pos & branch inventory...</p>
+      </div>
+    );
+  }
+
+  if (
+    session &&
+    !profile &&
+    profileCheckComplete &&
+    (health?.status === 'offline' || health?.status === 'error')
+  ) {
+    return (
+      <div className="app-loading-screen" role="status" aria-live="polite">
+        <img className="loading-meat-pulse" src="/magic-meat-logo.png" alt="" />
+        <h2>Waking up the database...</h2>
+        <p>Your account is signed in. We’ll load your data automatically when the connection is ready.</p>
       </div>
     );
   }

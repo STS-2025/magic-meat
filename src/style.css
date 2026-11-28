@@ -4753,6 +4753,30 @@ svg {
   }
 }
 
+/* Billing quantity controls on larger screens */
+@media (min-width: 768px) {
+  .pos-container .weight-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .pos-container .weight-presets .weight-btn {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .pos-container .weight-presets .weight-custom-btn {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 40px;
+    min-height: 32px;
+    padding: 6px;
+    border-radius: 999px;
+  }
+}
+
 @media (max-width: 359px) {
   .branch-card {
     padding: 8px;
